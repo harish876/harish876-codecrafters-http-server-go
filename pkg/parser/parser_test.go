@@ -32,3 +32,9 @@ func TestSerialiseUserAgent(t *testing.T) {
 	log.Println(parsedRequest)
 	log.Println(response)
 }
+
+func TestPostBody(t *testing.T) {
+	request := "POST /files/humpty_scooby_humpty_vanilla HTTP/1.1\r\nHost: localhost:4221\r\nUser-Agent: Go-http-client/1.1\r\nContent-Length: 48\r\nAccept-Encoding: gzip\r\n\r\nmonkey dumpty donkey dumpty 237 Coo humpty dooby"
+	parsedRequest := parser.DeserializeRequest(request)
+	log.Println("Body is ", parsedRequest)
+}

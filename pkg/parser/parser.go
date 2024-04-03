@@ -17,12 +17,12 @@ var (
 )
 
 type HttpRequest struct {
-	Method     string
-	Path       string
-	Host       string
-	UserAgent  string
-	Version    string
-	ReqContent string
+	Method    string
+	Path      string
+	Host      string
+	UserAgent string
+	Version   string
+	Body      string
 }
 
 func DeserializeRequest(req string) HttpRequest {
@@ -32,6 +32,7 @@ func DeserializeRequest(req string) HttpRequest {
 	var host string
 	var userAgent string
 	var version string
+	var body string
 
 	if len(reqArray) == 0 {
 		return HttpRequest{}
@@ -41,7 +42,6 @@ func DeserializeRequest(req string) HttpRequest {
 		method = getIndex(0, len(firstLineArray), firstLineArray, "string").(string)
 		path = getIndex(1, len(firstLineArray), firstLineArray, "string").(string)
 		version = getIndex(2, len(firstLineArray), firstLineArray, "string").(string)
-
 	}
 	n := len(reqArray)
 	hostArray := strings.Split(getIndex(1, n, reqArray, "string").(string), HOST_SEP)
@@ -53,12 +53,15 @@ func DeserializeRequest(req string) HttpRequest {
 		userAgent = userAgentArray[1]
 	}
 
+	body = getIndex(6, n, reqArray, "string").(string)
+
 	return HttpRequest{
 		Method:    method,
 		Path:      path,
 		Host:      host,
 		UserAgent: userAgent,
 		Version:   version,
+		Body:      body,
 	}
 }
 
