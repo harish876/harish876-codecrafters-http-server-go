@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/codecrafters-io/http-server-starter-go/pkg/parser"
 )
@@ -40,11 +41,15 @@ func handleConnection(conn net.Conn) {
 		request := buf[:recievedBytes]
 		parsedMessage := parser.Deserialize(string(request))
 		var response string
-		if parsedMessage.Path != "/" {
-			response = "HTTP/1.1 404 Not Found\r\n\r\n"
-		} else {
+		if parsedMessage.Path == "/" {
 			response = "HTTP/1.1 200 OK\r\n\r\n"
+		} else if strings.Contains(parsedMessage.Path, "echo") {
+			content := strings.Split(parsedMessage.Path, "/echo/")[1]
+			response = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(content), content)
+		} else {
+			response = "HTTP/1.1 404 Not Found\r\n\r\n"
 		}
+		log.Println(response)
 		sentBytes, err := conn.Write([]byte(response))
 		if err != nil {
 			log.Println("Error writing response: ", err.Error())
