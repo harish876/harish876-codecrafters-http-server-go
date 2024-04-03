@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -8,28 +9,38 @@ import (
 	"os"
 	"strings"
 
+	"github.com/codecrafters-io/http-server-starter-go/pkg"
 	"github.com/codecrafters-io/http-server-starter-go/pkg/parser"
 )
 
+type Server struct {
+	Directory string
+}
+
 func main() {
+	directory := flag.String("directory", "/tmp/data/codecrafters.io/http-server-test", "Directory")
+	flag.Parse()
+	server := Server{
+		Directory: *directory,
+	}
 	listener, err := net.Listen("tcp", "0.0.0.0:4221")
 	if err != nil {
 		fmt.Println("Failed to bind to port 4221")
 		os.Exit(1)
 	}
 
+	log.Println("Starting Server.. on Port 4221")
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
 		}
-		go handleConnection(conn)
+		go server.handleConnection(conn)
 	}
 }
 
-// work
-func handleConnection(conn net.Conn) {
+func (s *Server) handleConnection(conn net.Conn) {
 	for {
 		buf := make([]byte, 1024)
 		recievedBytes, err := conn.Read(buf)
@@ -47,6 +58,26 @@ func handleConnection(conn net.Conn) {
 			response = parser.Serialize(200, content, "text/plain")
 		} else if strings.Contains(parsedMessage.Path, "user-agent") {
 			response = parser.Serialize(200, parsedMessage.UserAgent, "text/plain")
+		} else if strings.Contains(parsedMessage.Path, "files") {
+			var fileName string
+			fileNameReq := strings.Split(parsedMessage.Path, "/files/")
+			if len(fileNameReq) == 2 {
+				fileName = fileNameReq[1]
+				log.Println("Filename", fileName)
+				if parsedMessage.Method == "GET" {
+					contents, err := pkg.HandleFile(fileName, s.Directory)
+					if err != nil {
+						response = parser.Serialize(404, "", "application/octet-stream")
+					} else {
+						log.Println(contents)
+						response = parser.Serialize(200, contents, "application/octet-stream")
+					}
+				} else if parsedMessage.Method == "POST" {
+					response = parser.Serialize(404, "", "application/octet-stream")
+				}
+			} else {
+				response = parser.Serialize(404, "", "text/plain")
+			}
 		} else {
 			response = parser.Serialize(404, "", "text/plain")
 		}
