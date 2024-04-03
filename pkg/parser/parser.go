@@ -73,7 +73,7 @@ func Serialize(status int, content string, contentType string) string {
 
 	firstLine := fmt.Sprintf("%s %d %s", HTTP_VERSION, status, text)
 	if len(content) == 0 {
-		return firstLine + "\r\n\r\n"
+		return firstLine + "\r\n" + "Content-length: 0" + "\r\n\r\n"
 	}
 	secondLine := fmt.Sprintf("Content-Type: %s", contentType)
 	thirdLine := fmt.Sprintf("Content-Length: %d", len(content))

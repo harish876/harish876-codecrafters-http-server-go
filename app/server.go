@@ -61,22 +61,18 @@ func (s *Server) handleConnection(conn net.Conn) {
 		} else if strings.Contains(parsedMessage.Path, "files") {
 			var fileName string
 			fileNameReq := strings.Split(parsedMessage.Path, "/files/")
-			if len(fileNameReq) == 2 {
-				fileName = fileNameReq[1]
-				log.Println("Filename", fileName)
-				if parsedMessage.Method == "GET" {
-					contents, err := pkg.HandleFile(fileName, s.Directory)
-					if err != nil {
-						response = parser.Serialize(404, "", "application/octet-stream")
-					} else {
-						log.Println(contents)
-						response = parser.Serialize(200, contents, "application/octet-stream")
-					}
-				} else if parsedMessage.Method == "POST" {
+			fileName = fileNameReq[1]
+			if parsedMessage.Method == "GET" {
+				contents, err := pkg.HandleFile(fileName, s.Directory)
+				if err != nil {
 					response = parser.Serialize(404, "", "application/octet-stream")
+					//response = fmt.Sprintf("%s %d %s\r\nContent-Length: 0", "HTTP/1.1", 404, "Not Found")
+				} else {
+					response = parser.Serialize(200, contents, "application/octet-stream")
 				}
-			} else {
-				response = parser.Serialize(404, "", "text/plain")
+			} else if parsedMessage.Method == "POST" {
+				response = parser.Serialize(404, "", "application/octet-stream")
+				//response = fmt.Sprintf("%s %d %s\r\nContent-Length: 0", "HTTP/1.1", 404, "Not Found")
 			}
 		} else {
 			response = parser.Serialize(404, "", "text/plain")
