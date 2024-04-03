@@ -12,8 +12,6 @@ import (
 )
 
 func main() {
-	fmt.Println("Logs from your program will appear here!")
-
 	listener, err := net.Listen("tcp", "0.0.0.0:4221")
 	if err != nil {
 		fmt.Println("Failed to bind to port 4221")
@@ -39,17 +37,19 @@ func handleConnection(conn net.Conn) {
 			break
 		}
 		request := buf[:recievedBytes]
-		parsedMessage := parser.Deserialize(string(request))
+		parsedMessage := parser.DeserializeRequest(string(request))
 		var response string
 		if parsedMessage.Path == "/" {
-			response = "HTTP/1.1 200 OK\r\n\r\n"
+			response = parser.Serialize(200, "", "text/plain")
 		} else if strings.Contains(parsedMessage.Path, "echo") {
 			content := strings.Split(parsedMessage.Path, "/echo/")[1]
-			response = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(content), content)
+			response = parser.Serialize(200, content, "text/plain")
+		} else if strings.Contains(parsedMessage.Path, "user-agent") {
+			response = parser.Serialize(200, parsedMessage.UserAgent, "text/plain")
 		} else {
-			response = "HTTP/1.1 404 Not Found\r\n\r\n"
+			response = parser.Serialize(404, "", "text/plain")
 		}
-		log.Println(response)
+		log.Println("Response is", response)
 		sentBytes, err := conn.Write([]byte(response))
 		if err != nil {
 			log.Println("Error writing response: ", err.Error())
