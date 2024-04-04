@@ -2,89 +2,81 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"io"
 	"log"
-	"net"
-	"os"
 	"strings"
 
-	"github.com/codecrafters-io/http-server-starter-go/pkg"
-	"github.com/codecrafters-io/http-server-starter-go/pkg/parser"
+	"github.com/codecrafters-io/http-server-starter-go/pkg/disel"
 )
 
-type Server struct {
-	Directory string
-}
-
-// TODO: Horrible Code, make into like a router
 func main() {
 	directory := flag.String("directory", "/tmp/data/codecrafters.io/http-server-test", "Directory")
 	flag.Parse()
-	server := Server{
-		Directory: *directory,
-	}
-	listener, err := net.Listen("tcp", "0.0.0.0:4221")
-	if err != nil {
-		fmt.Println("Failed to bind to port 4221")
-		os.Exit(1)
-	}
 
-	log.Println("Starting Server.. on Port 4221")
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			fmt.Println("Error accepting connection: ", err.Error())
-			os.Exit(1)
-		}
-		go server.handleConnection(conn)
-	}
-}
+	host := "0.0.0.0"
+	port := 4221
 
-func (s *Server) handleConnection(conn net.Conn) {
-	for {
-		buf := make([]byte, 1024)
-		recievedBytes, err := conn.Read(buf)
-		if err == io.EOF || err != nil {
-			log.Println(err)
-			break
-		}
-		request := buf[:recievedBytes]
-		parsedMessage := parser.DeserializeRequest(string(request))
-		var response string
-		if parsedMessage.Path == "/" {
-			response = parser.Serialize(200, "", "text/plain")
-		} else if strings.Contains(parsedMessage.Path, "echo") {
-			content := strings.Split(parsedMessage.Path, "/echo/")[1]
-			response = parser.Serialize(200, content, "text/plain")
-		} else if strings.Contains(parsedMessage.Path, "user-agent") {
-			response = parser.Serialize(200, parsedMessage.UserAgent, "text/plain")
-		} else if strings.Contains(parsedMessage.Path, "files") {
-			var fileName string
-			fileNameReq := strings.Split(parsedMessage.Path, "/files/")
-			fileName = fileNameReq[1]
-			if parsedMessage.Method == "GET" {
-				contents, err := pkg.HandleGetFile(fileName, s.Directory)
-				if err != nil {
-					log.Println(err)
-					response = parser.Serialize(404, "", "application/octet-stream")
-				} else {
-					response = parser.Serialize(200, contents, "application/octet-stream")
-				}
-			} else if parsedMessage.Method == "POST" {
-				if err := pkg.HandlePostFile(fileName, s.Directory, parsedMessage.Body); err != nil {
-					response = parser.Serialize(404, "", "application/octet-stream")
-				}
-				response = parser.Serialize(201, "", "application/octet-stream")
-			}
+	app := disel.New()
+	app.AddOption("directory", *directory)
+
+	app.GET("/", func(c *disel.Context) error {
+		c.Status(200).Send("Success")
+		return nil
+	})
+
+	app.GET("/echo", func(c *disel.Context) error {
+		log.Println("Path Params is ", c.Request.PathParams)
+		if len(c.Request.PathParams) > 0 {
+			content := strings.Join(c.Request.PathParams, "/")
+			c.Status(200).Send(content)
 		} else {
-			response = parser.Serialize(404, "", "text/plain")
+			c.Status(200).Send("Success")
 		}
-		log.Println("Response is", response)
-		sentBytes, err := conn.Write([]byte(response))
+		return nil
+	})
+
+	app.GET("/user-agent", func(c *disel.Context) error {
+		log.Println(c.Request)
+		c.Status(200).Send(c.Request.UserAgent)
+		return nil
+	})
+
+	app.GET("/files", func(c *disel.Context) error {
+		var fileName string
+		log.Println("Path Params At Files: ", c.Request.PathParams)
+		if len(c.Request.PathParams) == 0 {
+			c.Status(400).Send("File Does not Exist")
+			return nil
+		}
+		fileName = c.Request.PathParams[0]
+		contents, err := disel.HandleGetFile(fileName, app.Options["directory"])
 		if err != nil {
-			log.Println("Error writing response: ", err.Error())
+			c.Status(404).Send("Internal Server Error")
+			return nil
 		}
-		log.Println("Sent Bytes to Client: ", sentBytes)
-	}
+		if len(contents) == 0 {
+			c.Status(404).ContentType("application/octet-stream").Send(contents)
+			return nil
+		}
+
+		c.Status(200).ContentType("application/octet-stream").Send(contents)
+		return nil
+	})
+
+	app.POST("/files", func(c *disel.Context) error {
+		var fileName string
+		log.Println("Path Params At POST Files: ", c.Request.PathParams)
+		if len(c.Request.PathParams) == 0 {
+			c.Status(400).Send("File Does not Exist")
+			return nil
+		}
+		fileName = c.Request.PathParams[0]
+		if err := disel.HandlePostFile(fileName, app.Options["directory"], c.Request.Body); err != nil {
+			c.Status(404).Send("")
+		}
+		c.Status(201).ContentType("application/octet-stream").Send("")
+		return nil
+	})
+
+	log.Printf("Starting Server... on Port %d\n", port)
+	log.Fatal(app.ServeHTTP(host, port))
 }

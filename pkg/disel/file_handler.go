@@ -1,4 +1,4 @@
-package pkg
+package disel
 
 import (
 	"io/fs"

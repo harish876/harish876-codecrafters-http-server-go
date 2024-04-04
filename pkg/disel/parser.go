@@ -1,7 +1,8 @@
-package parser
+package disel
 
 import (
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -10,6 +11,7 @@ var (
 	SPACE          = " "
 	HOST_SEP       = ": "
 	UA_SEP         = ": "
+	PATH_SEP       = "/"
 	TEXT_PLAIN     = "text/plain"
 	SUCCESS_TEXT   = "OK"
 	NOT_FOUND_TEXT = "Not found"
@@ -17,18 +19,20 @@ var (
 )
 
 type HttpRequest struct {
-	Method    string
-	Path      string
-	Host      string
-	UserAgent string
-	Version   string
-	Body      string
+	Method     string
+	Path       string
+	PathParams []string
+	Host       string
+	UserAgent  string
+	Version    string
+	Body       string
 }
 
 func DeserializeRequest(req string) HttpRequest {
 	reqArray := strings.Split(req, CRLF)
 	var method string
 	var path string
+	var pathParams []string
 	var host string
 	var userAgent string
 	var version string
@@ -40,7 +44,10 @@ func DeserializeRequest(req string) HttpRequest {
 	firstLineArray := strings.Split(reqArray[0], SPACE)
 	if len(firstLineArray) > 0 {
 		method = getIndex(0, len(firstLineArray), firstLineArray, "string").(string)
-		path = getIndex(1, len(firstLineArray), firstLineArray, "string").(string)
+		pathStr := getIndex(1, len(firstLineArray), firstLineArray, "string").(string)
+		pathParams = strings.Split(pathStr, PATH_SEP)
+		log.Println(pathParams)
+		path = pathParams[1]
 		version = getIndex(2, len(firstLineArray), firstLineArray, "string").(string)
 	}
 	n := len(reqArray)
@@ -56,12 +63,13 @@ func DeserializeRequest(req string) HttpRequest {
 	body = getIndex(6, n, reqArray, "string").(string)
 
 	return HttpRequest{
-		Method:    method,
-		Path:      path,
-		Host:      host,
-		UserAgent: userAgent,
-		Version:   version,
-		Body:      body,
+		Method:     method,
+		Path:       path,
+		Host:       host,
+		UserAgent:  userAgent,
+		Version:    version,
+		Body:       body,
+		PathParams: pathParams[2:],
 	}
 }
 
