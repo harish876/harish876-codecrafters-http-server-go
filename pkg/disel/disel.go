@@ -85,7 +85,7 @@ func (d *Disel) ServeHTTP(host string, port int) error {
 	}
 }
 
-func (d *Disel) execHandler(ctx *Context) (string, error) {
+func (d *Disel) execHandler(ctx *Context) error {
 	if _, ok := d.GetRouteHandler[ctx.Request.Path]; !ok {
 		log.Printf("Route not found: %s", ctx.Request.Path)
 	}
@@ -106,16 +106,17 @@ func (d *Disel) execHandler(ctx *Context) (string, error) {
 		handler = nil
 	}
 	if handler == nil {
-		return ctx.Status(404).Send(fmt.Sprintf("Route Not found for Incoming Path %s", ctx.Request.Path)), nil
+		ctx.Status(404).Send(fmt.Sprintf("Route Not found for Incoming Path %s", ctx.Request.Path))
+		return nil
 	}
 	_, cancel := context.WithTimeout(ctx.Ctx, time.Second*10)
 	defer cancel()
 	if err := handler(ctx); err != nil {
-		return ctx.Status(http.StatusInternalServerError).Send("Not Found"),
-			err
+		ctx.Status(http.StatusInternalServerError).Send("Not Found")
+		return err
 	}
 	log.Println(ctx.Response.body)
-	return ctx.Response.body, nil
+	return nil
 }
 
 func (d *Disel) handleConnection(conn net.Conn) {
@@ -134,9 +135,9 @@ func (d *Disel) handleConnection(conn net.Conn) {
 			Ctx:     context.Background(),
 		}
 
-		response, _ := d.execHandler(ctx)
-		log.Println("Response is", response)
-		sentBytes, err := conn.Write([]byte(response))
+		_ = d.execHandler(ctx)
+		log.Println("Response is", ctx.Response.body)
+		sentBytes, err := conn.Write([]byte(ctx.Response.body))
 		if err != nil {
 			log.Println("Error writing response: ", err.Error())
 		}

@@ -20,7 +20,7 @@ func (c *Context) ContentType(contentType string) *Context {
 	return c
 }
 
-func (c *Context) Send(body string) string {
+func (c *Context) Send(body string) error {
 	if c.Response.status == 0 {
 		c.Response.status = 200
 	}
@@ -32,5 +32,5 @@ func (c *Context) Send(body string) string {
 		body,
 		c.Response.contentType,
 	)
-	return c.Response.body
+	return nil
 }
