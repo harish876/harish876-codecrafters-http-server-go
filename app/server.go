@@ -19,19 +19,17 @@ func main() {
 	app.AddOption("directory", *directory)
 
 	app.GET("/", func(c *disel.Context) error {
-		c.Status(200).Send("Success")
-		return nil
+		return c.Status(200).Send("Success")
 	})
 
 	app.GET("/echo", func(c *disel.Context) error {
 		log.Println("Path Params is ", c.Request.PathParams)
 		if len(c.Request.PathParams) > 0 {
 			content := strings.Join(c.Request.PathParams, "/")
-			c.Status(200).Send(content)
+			return c.Status(200).Send(content)
 		} else {
-			c.Status(200).Send("Success")
+			return c.Status(200).Send("Success")
 		}
-		return nil
 	})
 
 	app.GET("/user-agent", func(c *disel.Context) error {
@@ -44,18 +42,15 @@ func main() {
 		var fileName string
 		log.Println("Path Params At Files: ", c.Request.PathParams)
 		if len(c.Request.PathParams) == 0 {
-			c.Status(400).Send("File Does not Exist")
-			return nil
+			return c.Status(400).Send("File Does not Exist")
 		}
 		fileName = c.Request.PathParams[0]
 		contents, err := disel.HandleGetFile(fileName, app.Options["directory"])
 		if err != nil {
-			c.Status(404).Send("Internal Server Error")
-			return nil
+			return c.Status(404).Send("Internal Server Error")
 		}
 		if len(contents) == 0 {
-			c.Status(404).ContentType("application/octet-stream").Send(contents)
-			return nil
+			return c.Status(404).ContentType("application/octet-stream").Send(contents)
 		}
 
 		c.Status(200).ContentType("application/octet-stream").Send(contents)
@@ -66,15 +61,13 @@ func main() {
 		var fileName string
 		log.Println("Path Params At POST Files: ", c.Request.PathParams)
 		if len(c.Request.PathParams) == 0 {
-			c.Status(400).Send("File Does not Exist")
-			return nil
+			return c.Status(400).Send("File Does not Exist")
 		}
 		fileName = c.Request.PathParams[0]
 		if err := disel.HandlePostFile(fileName, app.Options["directory"], c.Request.Body); err != nil {
 			c.Status(404).Send("")
 		}
-		c.Status(201).ContentType("application/octet-stream").Send("")
-		return nil
+		return c.Status(201).ContentType("application/octet-stream").Send("")
 	})
 
 	log.Printf("Starting Server... on Port %d\n", port)
