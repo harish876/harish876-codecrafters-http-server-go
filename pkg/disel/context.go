@@ -3,12 +3,21 @@ package disel
 import (
 	"context"
 	"encoding/json"
+	"io"
 )
 
 type Context struct {
 	Request  HttpRequest
 	Ctx      context.Context
 	Response HttpResponse
+}
+
+func (c *Context) ReadBody() (string, error) {
+	data, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 func (c *Context) Status(status int) *Context {

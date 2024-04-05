@@ -61,6 +61,20 @@ func main() {
 
 	app.POST("/files", func(c *disel.Context) error {
 		var fileName string
+		log.Println("Path Params At POST Files: ", c.Request.PathParams)
+		if len(c.Request.PathParams) == 0 {
+			return c.Status(400).Send("File Does not Exist")
+		}
+		fileName = c.Request.PathParams[0]
+		reqBody, _ := c.ReadBody()
+		if err := disel.HandlePostFile(fileName, app.Options["directory"], reqBody); err != nil {
+			c.Status(404).Send("")
+		}
+		return c.Status(201).ContentType("application/octet-stream").Send("")
+	})
+
+	app.POST("/test", func(c *disel.Context) error {
+		var fileName string
 		var body ExampleBody
 		if err := json.NewDecoder(c.Request.Body).Decode(&body); err != nil {
 			return c.Status(400).Send("Unable to Decode Body")
