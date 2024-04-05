@@ -12,12 +12,6 @@ import (
 	"time"
 )
 
-type HttpResponse struct {
-	status      int
-	contentType string
-	body        string
-}
-
 type Disel struct {
 	Options          map[string]string
 	GetRouteHandler  map[string]*DiselHandlerFunc
@@ -128,15 +122,15 @@ func (d *Disel) handleConnection(conn net.Conn) {
 			break
 		}
 		request := buf[:recievedBytes]
-		parsedRequest := DeserializeRequest(string(request))
-		log.Println("Request Path is", parsedRequest.Path)
+		rawRequest := string(request)
+		parsedRequest := DeserializeRequest(rawRequest)
+		log.Println("Raw Request is", rawRequest)
 		ctx := &Context{
 			Request: parsedRequest,
 			Ctx:     context.Background(),
 		}
 
 		_ = d.execHandler(ctx)
-		log.Println("Response is", ctx.Response.body)
 		sentBytes, err := conn.Write([]byte(ctx.Response.body))
 		if err != nil {
 			log.Println("Error writing response: ", err.Error())
@@ -144,35 +138,3 @@ func (d *Disel) handleConnection(conn net.Conn) {
 		log.Println("Sent Bytes to Client: ", sentBytes)
 	}
 }
-
-/*
-var response string
-if parsedRequest.Path == "/" {
-	response = parser.Serialize(200, "", "text/plain")
-} else if strings.Contains(parsedRequest.Path, "echo") {
-	content := strings.Split(parsedRequest.Path, "/echo/")[1]
-	response = parser.Serialize(200, content, "text/plain")
-} else if strings.Contains(parsedRequest.Path, "user-agent") {
-	response = parser.Serialize(200, parsedRequest.UserAgent, "text/plain")
-} else if strings.Contains(parsedRequest.Path, "files") {
-	var fileName string
-	fileNameReq := strings.Split(parsedRequest.Path, "/files/")
-	fileName = fileNameReq[1]
-	if parsedRequest.Method == "GET" {
-		contents, err := pkg.HandleGetFile(fileName, s.Directory)
-		if err != nil {
-			log.Println(err)
-			response = parser.Serialize(404, "", "application/octet-stream")
-		} else {
-			response = parser.Serialize(200, contents, "application/octet-stream")
-		}
-	} else if parsedRequest.Method == "POST" {
-		if err := pkg.HandlePostFile(fileName, s.Directory, parsedRequest.Body); err != nil {
-			response = parser.Serialize(404, "", "application/octet-stream")
-		}
-		response = parser.Serialize(201, "", "application/octet-stream")
-	}
-} else {
-	response = parser.Serialize(404, "", "text/plain")
-}
-*/

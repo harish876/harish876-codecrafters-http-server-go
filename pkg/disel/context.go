@@ -2,6 +2,7 @@ package disel
 
 import (
 	"context"
+	"encoding/json"
 )
 
 type Context struct {
@@ -33,4 +34,13 @@ func (c *Context) Send(body string) error {
 		c.Response.contentType,
 	)
 	return nil
+}
+
+func (c *Context) JSON(body any) error {
+	mBody, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	c.Response.contentType = "application/json"
+	return c.Send(string(mBody))
 }

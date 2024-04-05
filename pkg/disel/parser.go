@@ -2,7 +2,7 @@ package disel
 
 import (
 	"fmt"
-	"log"
+	"strconv"
 	"strings"
 )
 
@@ -11,67 +11,128 @@ var (
 	SPACE          = " "
 	HOST_SEP       = ": "
 	UA_SEP         = ": "
+	CL_SEP         = ": "
 	PATH_SEP       = "/"
 	TEXT_PLAIN     = "text/plain"
 	SUCCESS_TEXT   = "OK"
 	NOT_FOUND_TEXT = "Not found"
 	HTTP_VERSION   = "HTTP/1.1"
+
+	HTTP            = "HTTP"
+	HOST            = "host"
+	USER_AGENT      = "User-Agent"
+	CONTENT_LENGTH  = "Content-Length"
+	ACCEPT_ENCODING = "Accept-Encoding"
+	CONTENT_TYPE    = "Content-Type"
 )
 
 type HttpRequest struct {
-	Method     string
-	Path       string
-	PathParams []string
-	Host       string
-	UserAgent  string
-	Version    string
-	Body       string
+	Method         string
+	Path           string
+	PathParams     []string
+	Host           string
+	UserAgent      string
+	Version        string
+	Body           *strings.Reader
+	ContentType    string
+	ContentLength  int
+	AcceptEncoding string
+}
+
+type HttpResponse struct {
+	status      int
+	contentType string
+	body        string
 }
 
 func DeserializeRequest(req string) HttpRequest {
 	reqArray := strings.Split(req, CRLF)
-	var method string
-	var path string
-	var pathParams []string
-	var host string
-	var userAgent string
-	var version string
-	var body string
+	var request HttpRequest
 
-	if len(reqArray) == 0 {
-		return HttpRequest{}
-	}
-	firstLineArray := strings.Split(reqArray[0], SPACE)
-	if len(firstLineArray) > 0 {
-		method = getIndex(0, len(firstLineArray), firstLineArray, "string").(string)
-		pathStr := getIndex(1, len(firstLineArray), firstLineArray, "string").(string)
-		pathParams = strings.Split(pathStr, PATH_SEP)
-		log.Println(pathParams)
-		path = pathParams[1]
-		version = getIndex(2, len(firstLineArray), firstLineArray, "string").(string)
-	}
 	n := len(reqArray)
-	hostArray := strings.Split(getIndex(1, n, reqArray, "string").(string), HOST_SEP)
-	if len(hostArray) >= 2 {
-		host = hostArray[1]
-	}
-	userAgentArray := strings.Split(getIndex(2, n, reqArray, "string").(string), UA_SEP)
-	if len(userAgentArray) >= 2 {
-		userAgent = userAgentArray[1]
+	if n == 0 {
+		return request
 	}
 
-	body = getIndex(6, n, reqArray, "string").(string)
+	for idx, line := range reqArray {
+		if strings.Contains(line, HTTP) {
+			request.parseFirstLine(line)
+		}
+		if strings.HasPrefix(line, HOST) {
+			request.parseHost(line)
+		}
+		if strings.HasPrefix(line, USER_AGENT) {
+			request.parseUserAgent(line)
+		}
+		if strings.HasPrefix(line, CONTENT_TYPE) {
+			request.parseContentType(line)
+		}
+		if strings.HasPrefix(line, CONTENT_LENGTH) {
+			request.parseContentLength(line)
+		}
+		if strings.HasPrefix(line, ACCEPT_ENCODING) {
+			request.parseAcceptEncoding(line)
+		}
+		if idx == n-1 {
+			request.parseBody(line)
+		}
+	}
+	return request
+}
+func (r *HttpRequest) parseFirstLine(firstLineInfo string) {
+	firstLineArray := strings.Split(firstLineInfo, SPACE)
+	if len(firstLineArray) > 0 {
+		method := getIndex(0, len(firstLineArray), firstLineArray, "string").(string)
+		pathStr := getIndex(1, len(firstLineArray), firstLineArray, "string").(string)
+		pathParams := strings.Split(pathStr, PATH_SEP)
+		path := pathParams[1]
+		version := getIndex(2, len(firstLineArray), firstLineArray, "string").(string)
 
-	return HttpRequest{
-		Method:     method,
-		Path:       path,
-		Host:       host,
-		UserAgent:  userAgent,
-		Version:    version,
-		Body:       body,
-		PathParams: pathParams[2:],
+		r.Method = method
+		r.Path = path
+		r.Version = version
+		r.PathParams = pathParams[2:]
 	}
 }
+func (r *HttpRequest) parseHost(hostInfo string) {
+	hostArray := strings.Split(hostInfo, HOST_SEP)
+	if len(hostArray) >= 2 {
+		r.Host = hostArray[1]
+	}
+}
+func (r *HttpRequest) parseUserAgent(userAgentInfo string) {
+	userAgentArray := strings.Split(userAgentInfo, UA_SEP)
+	if len(userAgentArray) >= 2 {
+		r.UserAgent = userAgentArray[1]
+	}
+}
+func (r *HttpRequest) parseAcceptEncoding(acceptEncodingInfo string) {
+	acceptEncodingArray := strings.Split(acceptEncodingInfo, UA_SEP)
+	if len(acceptEncodingArray) >= 2 {
+		r.AcceptEncoding = acceptEncodingArray[1]
+	}
+}
+func (r *HttpRequest) parseContentLength(contentLengthInfo string) {
+	contentLengthArray := strings.Split(contentLengthInfo, CL_SEP)
+	if len(contentLengthArray) >= 2 {
+		cl, err := strconv.Atoi(contentLengthArray[1])
+		if err == nil {
+			r.ContentLength = cl
+		}
+	}
+}
+func (r *HttpRequest) parseBody(bodyInfo string) {
+	body := bodyInfo
+	r.Body = strings.NewReader(body)
+}
+func (r *HttpRequest) parseContentType(contentTypeInfo string) {
+	contentTypeArray := strings.Split(contentTypeInfo, UA_SEP)
+	if len(contentTypeArray) >= 2 {
+		r.ContentType = contentTypeArray[1]
+	}
+}
+
+/* ---- SERIALIZE ------ */
 
 func Serialize(status int, content string, contentType string) string {
 
