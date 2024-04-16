@@ -8,23 +8,27 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"strings"
 	"time"
+
+	"github.com/codecrafters-io/http-server-starter-go/pkg/utils"
+	"github.com/codecrafters-io/http-server-starter-go/pkg/utils/logger"
 )
 
 type Disel struct {
-	Options          map[string]string
-	GetRouteHandler  map[string]*DiselHandlerFunc
-	PostRouteHandler map[string]*DiselHandlerFunc
+	Options      map[string]string
+	Log          *logger.Logger
+	GetHandlers  utils.RadixTree
+	PostHandlers utils.RadixTree
 }
 
 type DiselHandlerFunc func(c *Context) error
 
 func New() Disel {
 	return Disel{
-		Options:          make(map[string]string),
-		GetRouteHandler:  make(map[string]*DiselHandlerFunc),
-		PostRouteHandler: make(map[string]*DiselHandlerFunc),
+		Options:      make(map[string]string),
+		Log:          logger.Init(),
+		GetHandlers:  utils.NewRadixTree(),
+		PostHandlers: utils.NewRadixTree(),
 	}
 }
 
@@ -33,32 +37,14 @@ func (d *Disel) AddOption(optionKey string, optionValue string) {
 }
 
 func (d *Disel) GET(path string, handler DiselHandlerFunc) error {
-	formattedPathArray := strings.Split(path, PATH_SEP)
-	var formattedPath string
-	if len(formattedPathArray) == 0 {
-		formattedPath = ""
-	} else {
-		formattedPath = formattedPathArray[1]
-	}
-	log.Println("Registered Route for", formattedPath)
-	if _, ok := d.GetRouteHandler[formattedPath]; !ok {
-		d.GetRouteHandler[formattedPath] = &handler
-	}
+	d.Log.Debug("Registered GET Route for", path)
+	d.GetHandlers.Insert(path, &handler)
 	return nil
 }
 
 func (d *Disel) POST(path string, handler DiselHandlerFunc) error {
-	formattedPathArray := strings.Split(path, PATH_SEP)
-	var formattedPath string
-	if len(formattedPathArray) == 0 {
-		formattedPath = ""
-	} else {
-		formattedPath = formattedPathArray[1]
-	}
-	log.Println("Registered Route for", formattedPath)
-	if _, ok := d.PostRouteHandler[formattedPath]; !ok {
-		d.PostRouteHandler[formattedPath] = &handler
-	}
+	d.Log.Debug("Registered POST Route for", path)
+	d.PostHandlers.Insert(path, &handler)
 	return nil
 }
 
@@ -80,21 +66,25 @@ func (d *Disel) ServeHTTP(host string, port int) error {
 }
 
 func (d *Disel) execHandler(ctx *Context) error {
-	if _, ok := d.GetRouteHandler[ctx.Request.Path]; !ok {
-		log.Printf("Route not found: %s", ctx.Request.Path)
-	}
 	var handler DiselHandlerFunc
 	if ctx.Request.Method == "GET" {
-		if value, ok := d.GetRouteHandler[ctx.Request.Path]; !ok {
+		node, found := d.GetHandlers.Search(ctx.Request.Path)
+		d.Log.Debug("Incoming GET Route Path is", ctx.Request.Path)
+		if !found {
 			handler = nil
 		} else {
-			handler = *value
+			handler = *node.Value.(*DiselHandlerFunc)
+			d.Log.Debug("GET Handler is", handler)
 		}
+
 	} else if ctx.Request.Method == "POST" {
-		if value, ok := d.PostRouteHandler[ctx.Request.Path]; !ok {
+		node, found := d.PostHandlers.Search(ctx.Request.Path)
+		d.Log.Debug("Incoming POST Route Path is", ctx.Request.Path)
+		if !found {
 			handler = nil
 		} else {
-			handler = *value
+			handler = *node.Value.(*DiselHandlerFunc)
+			d.Log.Debug("POST Handler is", handler)
 		}
 	} else {
 		handler = nil
@@ -124,7 +114,7 @@ func (d *Disel) handleConnection(conn net.Conn) {
 		request := buf[:recievedBytes]
 		rawRequest := string(request)
 		parsedRequest := DeserializeRequest(rawRequest)
-		log.Println("Raw Request is", rawRequest)
+		d.Log.Debug("Raw Request is", rawRequest)
 		ctx := &Context{
 			Request: parsedRequest,
 			Ctx:     context.Background(),
@@ -133,8 +123,8 @@ func (d *Disel) handleConnection(conn net.Conn) {
 		_ = d.execHandler(ctx)
 		sentBytes, err := conn.Write([]byte(ctx.Response.body))
 		if err != nil {
-			log.Println("Error writing response: ", err.Error())
+			d.Log.Debug("Error writing response: ", err.Error())
 		}
-		log.Println("Sent Bytes to Client: ", sentBytes)
+		d.Log.Debug("Sent Bytes to Client: ", sentBytes)
 	}
 }

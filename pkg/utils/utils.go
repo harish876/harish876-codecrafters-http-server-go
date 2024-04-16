@@ -15,7 +15,14 @@ type Node struct {
 	IsLeaf bool
 }
 
-func NewNode(isLeaf bool) *Node {
+func NewNode(isLeaf bool, value interface{}) *Node {
+	if isLeaf {
+		return &Node{
+			Value:  value,
+			Edges:  make(map[byte]*Edge),
+			IsLeaf: isLeaf,
+		}
+	}
 	return &Node{
 		Edges:  make(map[byte]*Edge),
 		IsLeaf: isLeaf,
@@ -27,10 +34,10 @@ type Edge struct {
 	Next  *Node
 }
 
-func NewEdge(label string) *Edge {
+func NewEdge(key string, next *Node, value interface{}) *Edge {
 	return &Edge{
-		Label: label,
-		Next:  NewNode(true),
+		Label: key,
+		Next:  NewNode(true, value),
 	}
 }
 
@@ -38,8 +45,8 @@ func (n *Node) TotalEdges() int {
 	return len(n.Edges)
 }
 
-func (n *Node) AddEdge(label string, next Node) {
-	n.Edges[label[0]] = NewEdge(label)
+func (n *Node) AddEdge(key string, next *Node, value interface{}) {
+	n.Edges[key[0]] = NewEdge(key, next, value)
 }
 
 func (n *Node) GetTransition(transitionCharacter byte) *Edge {
@@ -52,24 +59,24 @@ type RadixTree struct {
 
 func NewRadixTree() RadixTree {
 	return RadixTree{
-		Root: NewNode(false),
+		Root: NewNode(false, nil),
 	}
 }
 
-func (t *RadixTree) Insert(word string) {
+func (t *RadixTree) Insert(path string, handler interface{}) {
 	current := t.Root
 	currIdx := 0
 	for {
-		if currIdx >= len(word) {
+		if currIdx >= len(path) {
 			break
 		}
 
-		transitionChar := word[currIdx]
+		transitionChar := path[currIdx]
 		currentEdge := current.GetTransition(transitionChar)
-		currStr := word[currIdx:]
+		currStr := path[currIdx:]
 
 		if currentEdge == nil {
-			current.Edges[transitionChar] = NewEdge(currStr)
+			current.Edges[transitionChar] = NewEdge(currStr, NewNode(true, handler), handler)
 			break
 		}
 
@@ -84,10 +91,10 @@ func (t *RadixTree) Insert(word string) {
 				//The leftover word is a prefix to the edge string, so split
 				suffix := currentEdge.Label[len(currStr):]
 				currentEdge.Label = currStr
-				newNext := NewNode(true)
+				newNext := NewNode(true, handler)
 				afterNewNext := currentEdge.Next
 				currentEdge.Next = newNext
-				newNext.AddEdge(suffix, *afterNewNext)
+				newNext.AddEdge(suffix, afterNewNext, afterNewNext.Value)
 				break
 			} else {
 				splitIndex = len(currentEdge.Label)
@@ -96,8 +103,8 @@ func (t *RadixTree) Insert(word string) {
 			suffix := currentEdge.Label[splitIndex:]
 			currentEdge.Label = currentEdge.Label[:splitIndex]
 			prevNext := currentEdge.Next
-			currentEdge.Next = NewNode(false)
-			currentEdge.Next.AddEdge(suffix, *prevNext)
+			currentEdge.Next = NewNode(false, nil)
+			currentEdge.Next.AddEdge(suffix, prevNext, prevNext.Value)
 		}
 		current = currentEdge.Next
 		currIdx += splitIndex
@@ -118,20 +125,20 @@ func printAllWords(current *Node, result string) {
 	}
 }
 
-func (t *RadixTree) Search(word string) (*Node, bool) {
+func (t *RadixTree) Search(path string) (*Node, bool) {
 	current := t.Root
 	currIndex := 0
 
 	for {
-		if currIndex >= len(word) {
+		if currIndex >= len(path) {
 			break
 		}
-		transitionChar := word[currIndex]
+		transitionChar := path[currIndex]
 		edge := current.GetTransition(transitionChar)
 		if edge == nil {
 			return nil, false
 		}
-		currSubstring := word[currIndex:]
+		currSubstring := path[currIndex:]
 		if !strings.HasPrefix(currSubstring, edge.Label) {
 			return nil, false
 		}

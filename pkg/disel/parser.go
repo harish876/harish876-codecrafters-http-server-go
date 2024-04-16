@@ -86,10 +86,11 @@ func (r *HttpRequest) parseFirstLine(firstLineInfo string) {
 		pathStr := getIndex(1, len(firstLineArray), firstLineArray, "string").(string)
 		pathParams := strings.Split(pathStr, PATH_SEP)
 		path := pathParams[1]
+		_ = path
 		version := getIndex(2, len(firstLineArray), firstLineArray, "string").(string)
 
 		r.Method = method
-		r.Path = path
+		r.Path = pathStr //
 		r.Version = version
 		r.PathParams = pathParams[2:]
 	}

@@ -3,10 +3,10 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"log"
 	"strings"
 
 	"github.com/codecrafters-io/http-server-starter-go/pkg/disel"
+	"github.com/codecrafters-io/http-server-starter-go/pkg/utils/logger"
 )
 
 type ExampleBody struct {
@@ -21,6 +21,8 @@ func main() {
 	port := 4221
 
 	app := disel.New()
+	app.Log.SetLevel(logger.DEBUG).Build()
+
 	app.AddOption("directory", *directory)
 
 	app.GET("/", func(c *disel.Context) error {
@@ -61,7 +63,7 @@ func main() {
 
 	app.POST("/files", func(c *disel.Context) error {
 		var fileName string
-		log.Println("Path Params At POST Files: ", c.Request.PathParams)
+		app.Log.Info("Path Params At POST Files: ", c.Request.PathParams)
 		if len(c.Request.PathParams) == 0 {
 			return c.Status(400).Send("File Does not Exist")
 		}
@@ -73,23 +75,15 @@ func main() {
 		return c.Status(201).ContentType("application/octet-stream").Send("")
 	})
 
-	app.POST("/test", func(c *disel.Context) error {
-		var fileName string
+	app.POST("/echo", func(c *disel.Context) error {
 		var body ExampleBody
 		if err := json.NewDecoder(c.Request.Body).Decode(&body); err != nil {
 			return c.Status(400).Send("Unable to Decode Body")
 		}
-		log.Println("Request Foo from Body ", body.Foo)
-		if len(c.Request.PathParams) == 0 {
-			return c.Status(400).JSON(body)
-		}
-		fileName = c.Request.PathParams[0]
-		if err := disel.HandlePostFile(fileName, app.Options["directory"], body.Foo); err != nil {
-			c.Status(404).Send("")
-		}
-		return c.Status(201).ContentType("application/octet-stream").Send("")
+		app.Log.Info("Request Foo from Body ", body.Foo)
+		return c.Status(200).JSON(body)
 	})
 
-	log.Printf("Starting Server... on Port %d\n", port)
-	log.Fatal(app.ServeHTTP(host, port))
+	app.Log.Infof("Starting Server... on Port %d\n", port)
+	app.Log.Fatal(app.ServeHTTP(host, port))
 }
